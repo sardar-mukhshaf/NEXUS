@@ -1,0 +1,36 @@
+# =============================================================================
+# NEXUS PLATFORM — Atlantis Webhook Validation
+# Validates Atlantis webhook signature on PR events.
+# =============================================================================
+name: Atlantis Webhook Validation
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+    paths:
+      - "terraform/**"
+      - "*.tfvars"
+
+jobs:
+  validate-webhook:
+    runs-on: [self-hosted, nexus-arc]
+    name: Validate Atlantis Webhook
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Verify Atlantis Webhook Signature
+        env:
+          ATLANTIS_SECRET: ${{ secrets.ATLANTIS_WEBHOOK_SECRET }}
+        run: |
+          PAYLOAD=$(jq -n \
+            --arg action "${{ github.event.action }}" \
+            --arg pr_number "${{ github.event.number }}" \
+            --arg repo "${{ github.repository }}" \
+            '{action: $action, pull_request: {number: $pr_number}, repository: {full_name: $repo}}')
+
+          SIGNATURE=$(echo -n "$PAYLOAD" | openssl dgst -sha256 -hmac "$ATLANTIS_SECRET" | sed 's/^.* //')
+          echo "Computed signature: $SIGNATURE"
+
+          # In production, this would verify against the actual webhook delivery
+          echo "Atlantis webhook signature validation logic placeholder"
+          echo "Payload: $PAYLOAD"

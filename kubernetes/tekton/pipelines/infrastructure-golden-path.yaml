@@ -1,0 +1,98 @@
+apiVersion: tekton.dev/v1beta1
+kind: Pipeline
+metadata:
+  name: infrastructure-golden-path
+  namespace: tekton-pipelines
+  annotations:
+    description: "Golden path for provisioning team infrastructure"
+    argocd.argoproj.io/tracking-id: "infrastructure-golden-path-pipeline"
+spec:
+  workspaces:
+    - name: source
+    - name: terraform-vars
+    - name: policies
+  params:
+    - name: git-url
+      type: string
+    - name: git-revision
+      type: string
+      default: main
+    - name: tf-dir
+      type: string
+    - name: var-file
+      type: string
+      default: terraform.tfvars
+    - name: git-commit-sha
+      type: string
+  tasks:
+    - name: clone
+      taskRef:
+        name: git-clone
+      workspaces:
+        - name: output
+          workspace: source
+      params:
+        - name: url
+          value: $(params.git-url)
+        - name: revision
+          value: $(params.git-revision)
+
+    - name: fmt
+      taskRef:
+        name: terraform-plan
+      runAfter: [clone]
+      workspaces:
+        - name: source
+          workspace: source
+        - name: terraform-vars
+          workspace: terraform-vars
+      params:
+        - name: tf-dir
+          value: $(params.tf-dir)
+        - name: var-file
+          value: $(params.var-file)
+        - name: git-commit-sha
+          value: $(params.git-commit-sha)
+
+    - name: opa-scan
+      taskRef:
+        name: opa-scan
+      runAfter: [fmt]
+      workspaces:
+        - name: source
+          workspace: source
+        - name: policies
+          workspace: policies
+      params:
+        - name: tf-dir
+          value: $(params.tf-dir)
+
+    - name: plan
+      taskRef:
+        name: terraform-plan
+      runAfter: [opa-scan]
+      workspaces:
+        - name: source
+          workspace: source
+        - name: terraform-vars
+          workspace: terraform-vars
+      params:
+        - name: tf-dir
+          value: $(params.tf-dir)
+        - name: var-file
+          value: $(params.var-file)
+        - name: git-commit-sha
+          value: $(params.git-commit-sha)
+
+    - name: apply
+      taskRef:
+        name: terraform-apply
+      runAfter: [plan]
+      workspaces:
+        - name: source
+          workspace: source
+        - name: terraform-vars
+          workspace: terraform-vars
+      params:
+        - name: tf-dir
+          value: $(params.tf-dir)

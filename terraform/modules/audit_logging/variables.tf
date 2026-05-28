@@ -1,0 +1,11 @@
+variable "project_name" { type = string }
+variable "environment" { type = string }
+variable "naming_prefix" { type = string }
+variable "enable_cloudtrail" { type = bool }
+variable "cloudtrail_bucket_prefix" { type = string }
+variable "audit_retention_years" { type = number }
+variable "enable_mfa_delete" { type = bool }
+variable "aws_secondary_region" { type = string }
+variable "common_tags" { type = map(string) }
+variable "git_commit_sha" { type = string }
+variable "resource_description" { type = string }

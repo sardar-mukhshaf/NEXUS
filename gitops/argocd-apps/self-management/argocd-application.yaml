@@ -1,0 +1,51 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: argocd-self-management
+  namespace: argocd
+  annotations:
+    description: "ArgoCD manages its own Helm release and configuration"
+    managed-by: "terraform"
+    argocd.argoproj.io/sync-wave: "-1"
+finalizers:
+  - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/example-org/nexus-platform.git
+    targetRevision: HEAD
+    path: gitops/argocd-apps/self-management
+    helm:
+      values: |
+        argo-cd:
+          configs:
+            cm:
+              application.resourceTrackingMethod: annotation
+            rbac:
+              policy.default: role:readonly
+              policy.csv: |
+                p, role:dev-team, applications, sync, dev-*/, allow
+                p, role:platform-admin, applications, *, */, allow
+                g, platform-engineering, role:platform-admin
+          controller:
+            selfHeal: true
+          server:
+            extraArgs:
+              - --insecure
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: argocd
+  syncPolicy:
+    automated:
+      selfHeal: true
+      prune: true
+    syncOptions:
+      - CreateNamespace=true
+      - PrunePropagationPolicy=foreground
+      - PruneLast=true
+    retry:
+      limit: 5
+      backoff:
+        duration: 5s
+        factor: 2
+        maxDuration: 3m

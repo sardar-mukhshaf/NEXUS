@@ -1,0 +1,27 @@
+# =============================================================================
+# SOPS Configuration — Creation Rules per Environment
+# =============================================================================
+creation_rules:
+  # Development environment secrets
+  - path_regex: secrets/dev/.*\.enc\.yaml$
+    kms: arn:aws:kms:eu-west-1:123456789012:key/REPLACE-ME-DEV-KEY
+    encrypted_regex: ^(data|stringData|password|token|key|secret)$
+    mac_only_encrypted: true
+
+  # Production environment secrets
+  - path_regex: secrets/prod/.*\.enc\.yaml$
+    kms: arn:aws:kms:eu-west-1:123456789012:key/REPLACE-ME-PROD-KEY
+    encrypted_regex: ^(data|stringData|password|token|key|secret)$
+    mac_only_encrypted: true
+
+  # Staging environment secrets
+  - path_regex: secrets/staging/.*\.enc\.yaml$
+    kms: arn:aws:kms:eu-west-1:123456789012:key/REPLACE-ME-STAGING-KEY
+    encrypted_regex: ^(data|stringData|password|token|key|secret)$
+    mac_only_encrypted: true
+
+  # Default catch-all for any other encrypted files
+  - path_regex: .*\.enc\.yaml$
+    kms: arn:aws:kms:eu-west-1:123456789012:key/REPLACE-ME-DEV-KEY
+    encrypted_regex: ^(data|stringData|password|token|key|secret)$
+    mac_only_encrypted: true

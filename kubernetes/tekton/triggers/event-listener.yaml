@@ -1,0 +1,73 @@
+apiVersion: triggers.tekton.dev/v1beta1
+kind: EventListener
+metadata:
+  name: nexus-platform-events
+  namespace: tekton-pipelines
+  annotations:
+    description: "EventListener for GitHub webhooks triggering Tekton pipelines"
+    argocd.argoproj.io/tracking-id: "nexus-platform-events"
+spec:
+  serviceAccountName: tekton-triggers
+  triggers:
+    - name: microservice-build-trigger
+      bindings:
+        - ref: github-push-binding
+      template:
+        ref: microservice-build-trigger-template
+      interceptors:
+        - ref:
+            name: github
+          params:
+            - name: secretRef
+              value:
+                secretName: github-webhook-secret
+                secretKey: secret
+            - name: eventTypes
+              value: ["push"]
+    - name: infrastructure-trigger
+      bindings:
+        - ref: github-pr-binding
+      template:
+        ref: infrastructure-trigger-template
+      interceptors:
+        - ref:
+            name: github
+          params:
+            - name: secretRef
+              value:
+                secretName: github-webhook-secret
+                secretKey: secret
+            - name: eventTypes
+              value: ["pull_request"]
+---
+apiVersion: triggers.tekton.dev/v1beta1
+kind: TriggerBinding
+metadata:
+  name: github-push-binding
+  namespace: tekton-pipelines
+  annotations:
+    argocd.argoproj.io/tracking-id: "github-push-binding"
+spec:
+  params:
+    - name: git-url
+      value: $(body.repository.clone_url)
+    - name: git-revision
+      value: $(body.ref)
+    - name: image
+      value: "${ECR_REGISTRY}/$(body.repository.name):$(body.head_commit.id)"
+---
+apiVersion: triggers.tekton.dev/v1beta1
+kind: TriggerBinding
+metadata:
+  name: github-pr-binding
+  namespace: tekton-pipelines
+  annotations:
+    argocd.argoproj.io/tracking-id: "github-pr-binding"
+spec:
+  params:
+    - name: git-url
+      value: $(body.pull_request.head.repo.clone_url)
+    - name: git-revision
+      value: $(body.pull_request.head.sha)
+    - name: git-commit-sha
+      value: $(body.pull_request.head.sha)

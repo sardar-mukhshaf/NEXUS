@@ -1,0 +1,13 @@
+variable "project_name" { type = string }
+variable "environment" { type = string }
+variable "naming_prefix" { type = string }
+variable "kyverno_enabled" { type = bool }
+variable "kyverno_version" { type = string }
+variable "kyverno_policies_enforce" { type = bool }
+variable "cluster_name" { type = string }
+variable "oidc_provider_arn" { type = string }
+variable "ecr_registry_url" { type = string }
+variable "cosign_kms_key_arn" { type = string }
+variable "common_tags" { type = map(string) }
+variable "git_commit_sha" { type = string }
+variable "resource_description" { type = string }

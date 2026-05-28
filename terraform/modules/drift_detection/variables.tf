@@ -1,0 +1,12 @@
+variable "project_name" { type = string }
+variable "environment" { type = string }
+variable "naming_prefix" { type = string }
+variable "drift_detection_enabled" { type = bool }
+variable "drift_check_interval" { type = string }
+variable "drift_auto_remediate" { type = bool }
+variable "drift_notification_email" { type = string }
+variable "terraform_state_bucket" { type = string }
+variable "terraform_state_key" { type = string }
+variable "common_tags" { type = map(string) }
+variable "git_commit_sha" { type = string }
+variable "resource_description" { type = string }

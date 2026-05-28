@@ -1,0 +1,67 @@
+{
+  "dashboard": {
+    "id": null,
+    "uid": "nexus-runtime-threats",
+    "title": "Runtime Threat Detection",
+    "tags": ["security", "runtime", "falco"],
+    "timezone": "utc",
+    "schemaVersion": 36,
+    "panels": [
+      {
+        "id": 1,
+        "title": "Falco Alerts by Severity",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "sum by (severity) (rate(falco_events_total[5m]))",
+            "legendFormat": "{{severity}}"
+          }
+        ]
+      },
+      {
+        "id": 2,
+        "title": "Kyverno Blocked Pods",
+        "type": "stat",
+        "targets": [
+          {
+            "expr": "sum(kyverno_admission_requests_total{result=\"fail\"})"
+          }
+        ]
+      },
+      {
+        "id": 3,
+        "title": "GuardDuty Findings",
+        "type": "table",
+        "targets": [
+          {
+            "expr": "aws_guardduty_findings",
+            "format": "table"
+          }
+        ]
+      },
+      {
+        "id": 4,
+        "title": "Crypto Mining Detections",
+        "type": "stat",
+        "targets": [
+          {
+            "expr": "sum(falco_events_total{rule=\"Crypto Mining Detection\"})"
+          }
+        ],
+        "alert": {
+          "name": "Crypto Mining Detected",
+          "message": "Critical: Crypto mining activity detected in cluster",
+          "conditions": [
+            {
+              "evaluator": {"params": [0], "type": "gt"},
+              "operator": {"type": "and"},
+              "query": {"params": ["A", "1m", "now"]},
+              "reducer": {"type": "last"},
+              "type": "query"
+            }
+          ]
+        }
+      }
+    ]
+  }
+}

@@ -1,0 +1,77 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: falco-custom-rules
+  namespace: falco
+  annotations:
+    description: "Custom Falco rules for runtime threat detection"
+    argocd.argoproj.io/tracking-id: "falco-custom-rules"
+data:
+  custom-rules.yaml: |
+    - rule: Crypto Mining Detection
+      desc: Detect connections to known crypto mining pools
+      condition: >
+        spawned_process and
+        (proc.name in ("xmrig", "minerd", "cgminer", "bfgminer", "stratum") or
+        (fd.name contains "stratum+tcp" or fd.name contains "stratum+ssl" or
+         fd.name contains "pool.minergate" or fd.name contains "nicehash" or
+         fd.name contains "miningpoolhub"))
+      output: >
+        Crypto mining process detected
+        user=%user.name command=%proc.cmdline pid=%proc.pid
+        connection=%fd.name
+      priority: CRITICAL
+      tags: [crypto, mining, mitre_impact]
+
+    - rule: Reverse Shell Detection
+      desc: Detect reverse shell attempts
+      condition: >
+        spawned_process and
+        ((proc.name in ("bash", "sh", "zsh", "python", "python3", "perl", "ruby", "nc", "ncat")) and
+         (proc.cmdline contains " -i" or proc.cmdline contains "interactive" or
+          proc.cmdline contains "/dev/tcp/" or proc.cmdline contains "/dev/udp/" or
+          proc.cmdline contains "socket.socket" or proc.cmdline contains "subprocess.call"))
+      output: >
+        Reverse shell detected
+        user=%user.name command=%proc.cmdline pid=%proc.pid parent=%proc.pname
+      priority: CRITICAL
+      tags: [shell, reverse, mitre_execution]
+
+    - rule: Unauthorized Kubectl Exec
+      desc: Detect kubectl exec into production namespaces
+      condition: >
+        spawned_process and
+        proc.name in ("kubectl") and
+        proc.cmdline contains "exec" and
+        (k8s.ns.name in ("prod", "production"))
+      output: >
+        Unauthorized kubectl exec detected
+        user=%user.name command=%proc.cmdline
+        namespace=%k8s.ns.name pod=%k8s.pod.name
+      priority: WARNING
+      tags: [kubernetes, exec, mitre_execution]
+
+    - rule: Privilege Escalation via Setuid
+      desc: Detect setuid/setgid bit changes
+      condition: >
+        spawned_process and
+        (proc.name in ("chmod", "chown", "chgrp") and
+         (proc.cmdline contains "u+s" or proc.cmdline contains "g+s" or
+          proc.cmdline contains "4755" or proc.cmdline contains "6755"))
+      output: >
+        Privilege escalation attempt via setuid/setgid
+        user=%user.name command=%proc.cmdline pid=%proc.pid
+      priority: CRITICAL
+      tags: [privilege_escalation, setuid, mitre_privilege_escalation]
+
+    - rule: Secrets Manager Access Audit
+      desc: Audit access to AWS Secrets Manager
+      condition: >
+        spawned_process and
+        (proc.name in ("aws", "curl", "wget") and
+         proc.cmdline contains "secretsmanager")
+      output: >
+        Secrets Manager access detected
+        user=%user.name command=%proc.cmdline pid=%proc.pid
+      priority: NOTICE
+      tags: [secrets, aws, audit]

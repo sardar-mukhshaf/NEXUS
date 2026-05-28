@@ -1,0 +1,39 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: enforce-resource-descriptions
+  annotations:
+    policies.kyverno.io/title: "Enforce Resource Descriptions"
+    policies.kyverno.io/category: "Governance"
+    policies.kyverno.io/severity: "low"
+    policies.kyverno.io/subject: "Deployment"
+    policies.kyverno.io/description: "Every resource must have a description annotation with at least 10 characters"
+    argocd.argoproj.io/tracking-id: "enforce-resource-descriptions"
+spec:
+  validationFailureAction: Enforce
+  background: true
+  rules:
+    - name: validate-description
+      match:
+        resources:
+          kinds:
+            - Deployment
+            - StatefulSet
+            - DaemonSet
+            - Service
+            - ConfigMap
+      exclude:
+        resources:
+          namespaces:
+            - kube-system
+            - kyverno
+            - falco
+            - atlantis
+            - argocd
+            - external-secrets
+      validate:
+        message: "Resource must have metadata.annotations.description with at least 10 characters."
+        pattern:
+          metadata:
+            annotations:
+              description: "?*"

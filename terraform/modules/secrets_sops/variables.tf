@@ -1,0 +1,9 @@
+variable "project_name" { type = string }
+variable "environment" { type = string }
+variable "naming_prefix" { type = string }
+variable "sops_enabled" { type = bool }
+variable "sops_kms_key_arn_dev" { type = string }
+variable "sops_kms_key_arn_prod" { type = string }
+variable "common_tags" { type = map(string) }
+variable "git_commit_sha" { type = string }
+variable "resource_description" { type = string }

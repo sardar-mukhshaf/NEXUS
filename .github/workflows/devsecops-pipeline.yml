@@ -1,0 +1,323 @@
+# =============================================================================
+# NEXUS PLATFORM — DevSecOps Pipeline
+# Trigger: push to main, PR to main
+# Runner: Self-hosted secure runner on EKS
+# =============================================================================
+name: DevSecOps Pipeline
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+env:
+  ECR_REGISTRY: ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com
+  IMAGE_TAG: ${{ github.sha }}
+
+jobs:
+  # ---------------------------------------------------------------------------
+  # Stage 1: Secret Scan
+  # ---------------------------------------------------------------------------
+  secret-scan:
+    runs-on: [self-hosted, nexus-arc]
+    name: Secret Scan
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: TruffleHog Git Scan
+        uses: trufflesecurity/trufflehog@main
+        with:
+          path: ./
+          base: main
+          head: HEAD
+          extra_args: --only-verified
+
+      - name: TruffleHog Filesystem Scan
+        uses: trufflesecurity/trufflehog@main
+        with:
+          path: ./
+          extra_args: --only-verified
+
+      - name: Upload Report
+        uses: actions/upload-artifact@v4
+        with:
+          name: secret-scan-report
+          path: trufflehog-report.json
+        if: always()
+
+  # ---------------------------------------------------------------------------
+  # Stage 2: SAST
+  # ---------------------------------------------------------------------------
+  sast:
+    runs-on: [self-hosted, nexus-arc]
+    name: SAST
+    needs: secret-scan
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: SonarQube Scan
+        uses: sonarsource/sonarqube-scan-action@master
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
+        with:
+          args: >
+            -Dsonar.projectKey=nexus-platform
+            -Dsonar.qualitygate.wait=true
+            -Dsonar.coverage.exclusions=**/*.tf,**/*.yaml
+
+  # ---------------------------------------------------------------------------
+  # Stage 3: Dependency Scan
+  # ---------------------------------------------------------------------------
+  dependency-scan:
+    runs-on: [self-hosted, nexus-arc]
+    name: Dependency Scan
+    needs: secret-scan
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: OWASP Dependency-Check
+        uses: dependency-check/Dependency-Check_Action@main
+        with:
+          project: "nexus-platform"
+          path: "."
+          format: "ALL"
+          args: >
+            --enableRetired
+            --failOnCVSS 7
+
+      - name: Upload Dependency-Check Report
+        uses: actions/upload-artifact@v4
+        with:
+          name: dependency-check-report
+          path: reports/
+        if: always()
+
+  # ---------------------------------------------------------------------------
+  # Stage 4: Build + SBOM
+  # ---------------------------------------------------------------------------
+  build:
+    runs-on: [self-hosted, nexus-arc]
+    name: Build and SBOM
+    needs: [sast, dependency-scan]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.ARC_IAM_ROLE }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build and Push
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          tags: |
+            ${{ env.ECR_REGISTRY }}/nexus-platform:${{ env.IMAGE_TAG }}
+            ${{ env.ECR_REGISTRY }}/nexus-platform:latest
+          platforms: linux/amd64,linux/arm64
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Generate SBOM with Syft
+        uses: anchore/sbom-action@v0
+        with:
+          image: ${{ env.ECR_REGISTRY }}/nexus-platform:${{ env.IMAGE_TAG }}
+          format: cyclonedx-json
+          output-file: sbom.cyclonedx.json
+
+      - name: Upload SBOM
+        uses: actions/upload-artifact@v4
+        with:
+          name: sbom
+          path: sbom.cyclonedx.json
+
+  # ---------------------------------------------------------------------------
+  # Stage 5: Container Scan
+  # ---------------------------------------------------------------------------
+  container-scan:
+    runs-on: [self-hosted, nexus-arc]
+    name: Container Scan
+    needs: build
+    steps:
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.ARC_IAM_ROLE }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Trivy Image Scan
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: ${{ env.ECR_REGISTRY }}/nexus-platform:${{ env.IMAGE_TAG }}
+          format: sarif
+          output: trivy-results.sarif
+          exit-code: 1
+          severity: HIGH,CRITICAL
+
+      - name: Upload Trivy SARIF
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: trivy-results.sarif
+        if: always()
+
+  # ---------------------------------------------------------------------------
+  # Stage 6: Image Sign
+  # ---------------------------------------------------------------------------
+  sign:
+    runs-on: [self-hosted, nexus-arc]
+    name: Image Sign
+    needs: container-scan
+    steps:
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.ARC_IAM_ROLE }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Install Cosign
+        uses: sigstore/cosign-installer@v3
+
+      - name: Sign Image with KMS
+        run: |
+          cosign sign --key awskms:///alias/nexus-cosign \
+            ${{ env.ECR_REGISTRY }}/nexus-platform:${{ env.IMAGE_TAG }}
+
+      - name: Attach SBOM to Image
+        run: |
+          cosign attach sbom --sbom sbom.cyclonedx.json \
+            ${{ env.ECR_REGISTRY }}/nexus-platform:${{ env.IMAGE_TAG }}
+
+      - name: Verify Signature
+        run: |
+          cosign verify --key awskms:///alias/nexus-cosign \
+            ${{ env.ECR_REGISTRY }}/nexus-platform:${{ env.IMAGE_TAG }}
+
+  # ---------------------------------------------------------------------------
+  # Stage 7: IaC Scan
+  # ---------------------------------------------------------------------------
+  iac-scan:
+    runs-on: [self-hosted, nexus-arc]
+    name: IaC Scan
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Checkov Scan
+        uses: bridgecrewio/checkov-action@master
+        with:
+          directory: terraform/
+          framework: terraform
+          output_format: sarif
+          output_file_path: reports/checkov.sarif
+          soft_fail: false
+
+      - name: Snyk IaC Scan
+        uses: snyk/actions/iac@master
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+        with:
+          args: --severity-threshold=high terraform/
+        continue-on-error: false
+
+  # ---------------------------------------------------------------------------
+  # Stage 8: Deploy Staging
+  # ---------------------------------------------------------------------------
+  deploy-staging:
+    runs-on: [self-hosted, nexus-arc]
+    name: Deploy Staging
+    needs: [sign, iac-scan]
+    environment: staging
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Update Staging Manifest
+        run: |
+          sed -i "s|image: .*|image: ${{ env.ECR_REGISTRY }}/nexus-platform:${{ env.IMAGE_TAG }}|" \
+            gitops/teams/backend/staging/deployment.yaml
+
+      - name: Commit Staging Update
+        run: |
+          git config user.name "github-actions"
+          git config user.email "github-actions@github.com"
+          git add gitops/teams/backend/staging/deployment.yaml
+          git commit -m "Deploy ${{ env.IMAGE_TAG }} to staging" || echo "No changes"
+          git push
+
+      - name: Smoke Tests
+        run: |
+          kubectl rollout status deployment/backend -n backend-staging --timeout=300s
+          curl -sf https://backend-staging.nexus-platform.local/health || exit 1
+
+  # ---------------------------------------------------------------------------
+  # Stage 9: Runtime Verification
+  # ---------------------------------------------------------------------------
+  runtime-verify:
+    runs-on: [self-hosted, nexus-arc]
+    name: Runtime Verification
+    needs: deploy-staging
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Deploy Falco Test Pod
+        run: |
+          kubectl apply -f tests/falco-test-crypto-mining.yaml
+          sleep 30
+
+      - name: Verify Falco Detection
+        run: |
+          kubectl logs -n falco -l app.kubernetes.io/name=falco --tail=100 | \
+            grep -q "Crypto mining process detected" || exit 1
+          echo "Falco correctly detected crypto-mining test pod"
+
+      - name: Cleanup Test Pod
+        run: |
+          kubectl delete -f tests/falco-test-crypto-mining.yaml --ignore-not-found
+
+  # ---------------------------------------------------------------------------
+  # Stage 10: Deploy Prod
+  # ---------------------------------------------------------------------------
+  deploy-prod:
+    runs-on: [self-hosted, nexus-arc]
+    name: Deploy Production
+    needs: runtime-verify
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Update Prod Manifest
+        run: |
+          sed -i "s|image: .*|image: ${{ env.ECR_REGISTRY }}/nexus-platform:${{ env.IMAGE_TAG }}|" \
+            gitops/teams/backend/prod/deployment.yaml
+
+      - name: Commit Prod Update
+        run: |
+          git config user.name "github-actions"
+          git config user.email "github-actions@github.com"
+          git add gitops/teams/backend/prod/deployment.yaml
+          git commit -m "Deploy ${{ env.IMAGE_TAG }} to production" || echo "No changes"
+          git push
+
+      - name: Notify PagerDuty
+        run: |
+          curl -X POST -H "Content-Type: application/json" \
+            -d '{"routing_key":"${{ secrets.PAGERDUTY_KEY }}","event_action":"trigger","payload":{"summary":"Nexus deployment to production","severity":"info","source":"github-actions"}}' \
+            https://events.pagerduty.com/v2/enqueue

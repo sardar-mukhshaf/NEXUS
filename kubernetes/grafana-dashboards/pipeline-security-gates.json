@@ -1,0 +1,55 @@
+{
+  "dashboard": {
+    "id": null,
+    "uid": "nexus-pipeline-gates",
+    "title": "Pipeline Security Gates",
+    "tags": ["security", "pipeline", "devsecops"],
+    "timezone": "utc",
+    "schemaVersion": 36,
+    "panels": [
+      {
+        "id": 1,
+        "title": "TruffleHog Secrets Found",
+        "type": "stat",
+        "targets": [
+          {
+            "expr": "sum(trufflehog_secrets_found)"
+          }
+        ]
+      },
+      {
+        "id": 2,
+        "title": "SonarQube Bugs by Severity",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "sum by (severity) (sonarqube_bugs)",
+            "legendFormat": "{{severity}}"
+          }
+        ]
+      },
+      {
+        "id": 3,
+        "title": "Trivy CVEs by Severity",
+        "type": "piechart",
+        "targets": [
+          {
+            "expr": "sum by (severity) (trivy_vulnerabilities)",
+            "legendFormat": "{{severity}}"
+          }
+        ]
+      },
+      {
+        "id": 4,
+        "title": "Snyk IaC Issues",
+        "type": "table",
+        "targets": [
+          {
+            "expr": "sum by (severity, issue_type) (snyk_iac_issues)",
+            "format": "table"
+          }
+        ]
+      }
+    ]
+  }
+}

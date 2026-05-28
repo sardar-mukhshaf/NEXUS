@@ -1,0 +1,87 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: atlantis
+  namespace: atlantis
+  annotations:
+    description: "Atlantis server for PR-based Terraform applies"
+    managed-by: "terraform"
+    argocd.argoproj.io/tracking-id: "atlantis"
+spec:
+  serviceName: atlantis
+  replicas: 1
+  selector:
+    matchLabels:
+      app: atlantis
+  template:
+    metadata:
+      labels:
+        app: atlantis
+    spec:
+      serviceAccountName: atlantis
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        fsGroup: 1000
+      containers:
+        - name: atlantis
+          image: ghcr.io/runatlantis/atlantis:v0.27.0
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 4141
+              protocol: TCP
+          env:
+            - name: ATLANTIS_GH_USER
+              valueFrom:
+                secretKeyRef:
+                  name: atlantis-github
+                  key: username
+            - name: ATLANTIS_GH_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: atlantis-github
+                  key: token
+            - name: ATLANTIS_GH_WEBHOOK_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: atlantis-github
+                  key: webhook-secret
+            - name: ATLANTIS_REPO_ALLOWLIST
+              value: "github.com/example-org/*"
+            - name: ATLANTIS_DATA_DIR
+              value: "/atlantis-data"
+            - name: ATLANTIS_DEFAULT_TF_VERSION
+              value: "1.7.0"
+            - name: ATLANTIS_REPO_CONFIG
+              value: "/atlantis-config/repo-config.yaml"
+          volumeMounts:
+            - name: data
+              mountPath: /atlantis-data
+            - name: config
+              mountPath: /atlantis-config
+          resources:
+            limits:
+              cpu: 1000m
+              memory: 2Gi
+            requests:
+              cpu: 250m
+              memory: 512Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+                - ALL
+      volumes:
+        - name: config
+          configMap:
+            name: atlantis-config
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: 10Gi

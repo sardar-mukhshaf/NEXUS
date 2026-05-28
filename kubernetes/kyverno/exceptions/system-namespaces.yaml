@@ -1,0 +1,37 @@
+apiVersion: kyverno.io/v2beta1
+kind: PolicyException
+metadata:
+  name: system-namespace-exceptions
+  namespace: kyverno
+  annotations:
+    description: "Exceptions for system namespaces that require elevated privileges"
+    argocd.argoproj.io/tracking-id: "system-namespace-exceptions"
+spec:
+  exceptions:
+    - policyName: require-non-root
+      ruleNames:
+        - check-security-context
+    - policyName: require-resource-limits
+      ruleNames:
+        - validate-resources
+    - policyName: restrict-image-registries
+      ruleNames:
+        - validate-ecr-registry
+    - policyName: require-gitops-annotations
+      ruleNames:
+        - validate-argocd-annotation
+    - policyName: enforce-resource-descriptions
+      ruleNames:
+        - validate-description
+  match:
+    any:
+      - resources:
+          namespaces:
+            - kube-system
+            - kyverno
+            - falco
+            - atlantis
+            - argocd
+            - external-secrets
+            - monitoring
+            - cert-manager

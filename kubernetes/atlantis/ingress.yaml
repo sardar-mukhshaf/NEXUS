@@ -1,0 +1,25 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: atlantis
+  namespace: atlantis
+  annotations:
+    description: "Ingress for Atlantis GitOps server"
+    argocd.argoproj.io/tracking-id: "atlantis-ingress"
+    alb.ingress.kubernetes.io/scheme: internal
+    alb.ingress.kubernetes.io/target-type: ip
+    alb.ingress.kubernetes.io/listen-ports: '[{"HTTPS":443}]'
+    alb.ingress.kubernetes.io/certificate-arn: arn:aws:acm:eu-west-1:123456789012:certificate/REPLACE-ME
+spec:
+  ingressClassName: alb
+  rules:
+    - host: atlantis.nexus-platform.local
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: atlantis
+                port:
+                  number: 4141

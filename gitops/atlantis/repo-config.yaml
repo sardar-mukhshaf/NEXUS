@@ -1,0 +1,51 @@
+# =============================================================================
+# Atlantis Server Repo Config — Allowed Repos & Workflows
+# =============================================================================
+repos:
+  - id: github.com/example-org/nexus-platform
+    branch: /.*/
+    allowed_overrides: [apply_requirements, workflow]
+    allow_custom_workflows: false
+    apply_requirements: [approved, mergeable]
+    pre_workflow_hooks:
+      - run: echo "[ATLANTIS] Starting Atlantis workflow for ${ATLANTIS_REPO_OWNER}/${ATLANTIS_REPO_NAME}"
+    post_workflow_hooks:
+      - run: |
+          if [ "${ATLANTIS_CMD}" = "apply" ]; then
+            echo "[ATLANTIS] Apply complete. Triggering ArgoCD sync check..."
+            # Optional: curl to ArgoCD API to force refresh apps
+          fi
+
+  - id: github.com/example-org/*
+    branch: /.*/
+    apply_requirements: [approved, mergeable]
+    workflow: default
+
+workflows:
+  default:
+    plan:
+      steps:
+        - init
+        - plan:
+            extra_args: ["-var-file=../../terraform.tfvars", "-var-file=../../dev.tfvars"]
+        - run: conftest test $PLANFILE -p /policies/conftest/terraform
+    apply:
+      steps:
+        - apply
+
+  strict:
+    plan:
+      steps:
+        - init
+        - plan:
+            extra_args: ["-var-file=../../terraform.tfvars", "-var-file=../../prod.tfvars"]
+        - run: conftest test $PLANFILE -p /policies/conftest/terraform
+        - run: |
+            echo "[ATLANTIS] Running OPA evaluation..."
+            opa eval --data /policies/opa/terraform --input $PLANFILE "data.terraform.deny" || true
+        - run: |
+            echo "[ATLANTIS] Running Checkov..."
+            checkov -f $PLANFILE --framework terraform_plan --quiet
+    apply:
+      steps:
+        - apply

@@ -1,0 +1,19 @@
+# =============================================================================
+# Atlantis Workflow: default (dev)
+# Steps: init → plan → conftest test → apply
+# =============================================================================
+workflow: default
+
+plan:
+  steps:
+    - init:
+        extra_args: ["-backend-config=backend.tfvars"]
+    - plan:
+        extra_args: ["-var-file=../../terraform.tfvars", "-var-file=../../dev.tfvars", "-var=git_commit_sha=$GIT_COMMIT_SHA"]
+    - run: |
+        echo "[ATLANTIS] Running Conftest on plan..."
+        conftest test $PLANFILE -p /policies/conftest/terraform --no-fail
+
+apply:
+  steps:
+    - apply

@@ -1,0 +1,48 @@
+apiVersion: tekton.dev/v1beta1
+kind: Task
+metadata:
+  name: kaniko-build
+  namespace: tekton-pipelines
+  annotations:
+    description: "Build and push container image with Kaniko"
+    argocd.argoproj.io/tracking-id: "kaniko-build-task"
+spec:
+  workspaces:
+    - name: source
+    - name: dockerconfig
+      description: Docker config for registry authentication
+  params:
+    - name: image
+      type: string
+      description: Target image reference
+    - name: dockerfile
+      type: string
+      description: Path to Dockerfile
+      default: ./Dockerfile
+    - name: context
+      type: string
+      description: Build context
+      default: .
+  steps:
+    - name: build-and-push
+      image: gcr.io/kaniko-project/executor:v1.20.0@sha256:REPLACE_WITH_DIGEST
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65532
+      args:
+        - --dockerfile=$(params.dockerfile)
+        - --context=$(workspaces.source.path)/$(params.context)
+        - --destination=$(params.image)
+        - --cache=true
+        - --cache-dir=/workspace/cache
+        - --snapshot-mode=redo
+        - --use-new-run
+      env:
+        - name: DOCKER_CONFIG
+          value: $(workspaces.dockerconfig.path)
+      volumeMounts:
+        - name: kaniko-cache
+          mountPath: /workspace/cache
+  volumes:
+    - name: kaniko-cache
+      emptyDir: {}

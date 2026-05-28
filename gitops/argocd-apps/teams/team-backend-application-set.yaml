@@ -1,0 +1,35 @@
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: team-backend-services
+  namespace: argocd
+  annotations:
+    description: "ApplicationSet generating apps for backend team microservices"
+    argocd.argoproj.io/tracking-id: "team-backend-services"
+spec:
+  generators:
+    - git:
+        repoURL: https://github.com/example-org/nexus-platform.git
+        revision: HEAD
+        directories:
+          - path: gitops/teams/backend/*
+  template:
+    metadata:
+      name: "{{path.basename}}"
+      annotations:
+        argocd.argoproj.io/tracking-id: "{{path.basename}}"
+    spec:
+      project: default
+      source:
+        repoURL: https://github.com/example-org/nexus-platform.git
+        targetRevision: HEAD
+        path: "{{path}}"
+      destination:
+        server: https://kubernetes.default.svc
+        namespace: "{{path.basename}}"
+      syncPolicy:
+        automated:
+          selfHeal: true
+          prune: true
+        syncOptions:
+          - CreateNamespace=true

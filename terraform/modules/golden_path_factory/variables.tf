@@ -1,0 +1,13 @@
+variable "project_name" { type = string }
+variable "environment" { type = string }
+variable "naming_prefix" { type = string }
+variable "cluster_name" { type = string }
+variable "oidc_provider_arn" { type = string }
+variable "oidc_provider_url" { type = string }
+variable "vpc_id" { type = string }
+variable "private_subnet_ids" { type = list(string) }
+variable "database_subnet_ids" { type = list(string) }
+variable "cost_centers" { type = map(string) }
+variable "common_tags" { type = map(string) }
+variable "git_commit_sha" { type = string }
+variable "resource_description" { type = string }

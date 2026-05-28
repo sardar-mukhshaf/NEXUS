@@ -1,0 +1,129 @@
+name: test-kyverno-policies
+policies:
+  - ../kubernetes/kyverno/cluster-policies/require-resource-limits.yaml
+  - ../kubernetes/kyverno/cluster-policies/require-non-root.yaml
+  - ../kubernetes/kyverno/cluster-policies/restrict-image-registries.yaml
+resources:
+  - name: good-pod
+    resource:
+      apiVersion: v1
+      kind: Pod
+      metadata:
+        name: good-pod
+        namespace: default
+        annotations:
+          description: "Valid pod with all requirements"
+          argocd.argoproj.io/tracking-id: "good-pod"
+      spec:
+        securityContext:
+          runAsNonRoot: true
+        containers:
+          - name: app
+            image: "123456789012.dkr.ecr.eu-west-1.amazonaws.com/app:v1"
+            resources:
+              limits:
+                cpu: "500m"
+                memory: "512Mi"
+              requests:
+                cpu: "100m"
+                memory: "128Mi"
+            securityContext:
+              allowPrivilegeEscalation: false
+              readOnlyRootFilesystem: true
+              capabilities:
+                drop:
+                  - ALL
+  - name: bad-pod-no-limits
+    resource:
+      apiVersion: v1
+      kind: Pod
+      metadata:
+        name: bad-pod-no-limits
+        namespace: default
+        annotations:
+          description: "Pod missing resource limits"
+          argocd.argoproj.io/tracking-id: "bad-pod-no-limits"
+      spec:
+        securityContext:
+          runAsNonRoot: true
+        containers:
+          - name: app
+            image: "123456789012.dkr.ecr.eu-west-1.amazonaws.com/app:v1"
+            securityContext:
+              allowPrivilegeEscalation: false
+              readOnlyRootFilesystem: true
+              capabilities:
+                drop:
+                  - ALL
+  - name: bad-pod-root
+    resource:
+      apiVersion: v1
+      kind: Pod
+      metadata:
+        name: bad-pod-root
+        namespace: default
+        annotations:
+          description: "Pod running as root"
+          argocd.argoproj.io/tracking-id: "bad-pod-root"
+      spec:
+        containers:
+          - name: app
+            image: "123456789012.dkr.ecr.eu-west-1.amazonaws.com/app:v1"
+            resources:
+              limits:
+                cpu: "500m"
+                memory: "512Mi"
+              requests:
+                cpu: "100m"
+                memory: "128Mi"
+  - name: bad-pod-public-image
+    resource:
+      apiVersion: v1
+      kind: Pod
+      metadata:
+        name: bad-pod-public-image
+        namespace: default
+        annotations:
+          description: "Pod using public image registry"
+          argocd.argoproj.io/tracking-id: "bad-pod-public-image"
+      spec:
+        securityContext:
+          runAsNonRoot: true
+        containers:
+          - name: app
+            image: "nginx:latest"
+            resources:
+              limits:
+                cpu: "500m"
+                memory: "512Mi"
+            securityContext:
+              allowPrivilegeEscalation: false
+              readOnlyRootFilesystem: true
+              capabilities:
+                drop:
+                  - ALL
+results:
+  - policy: require-resource-limits
+    rule: validate-resources
+    resource: good-pod
+    result: pass
+  - policy: require-resource-limits
+    rule: validate-resources
+    resource: bad-pod-no-limits
+    result: fail
+  - policy: require-non-root
+    rule: check-security-context
+    resource: good-pod
+    result: pass
+  - policy: require-non-root
+    rule: check-security-context
+    resource: bad-pod-root
+    result: fail
+  - policy: restrict-image-registries
+    rule: validate-ecr-registry
+    resource: good-pod
+    result: pass
+  - policy: restrict-image-registries
+    rule: validate-ecr-registry
+    resource: bad-pod-public-image
+    result: fail

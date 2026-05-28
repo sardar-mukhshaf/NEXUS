@@ -1,0 +1,36 @@
+replicaCount: 2
+
+resources:
+  limits:
+    cpu: 500m
+    memory: 256Mi
+  requests:
+    cpu: 100m
+    memory: 128Mi
+
+config:
+  debug: false
+  # PagerDuty integration for critical alerts
+  paging:
+    enabled: true
+    routingKey: "REPLACE_WITH_PAGERDUTY_ROUTING_KEY"
+    severity: critical
+
+  # Slack integration for warnings
+  slack:
+    webhookurl: "REPLACE_WITH_SLACK_WEBHOOK_URL"
+    outputformat: all
+    minimumpriority: warning
+
+  # S3 archive for long-term storage
+  aws:
+    accesskeyid: ""
+    secretaccesskey: ""
+    region: "eu-west-1"
+    s3:
+      bucket: "nexus-platform-falco-archive"
+      prefix: "falco-alerts/"
+
+  # Default output settings
+  defaultkeywords: "falco,security,alert"
+  customfields: "environment:prod,platform:nexus"

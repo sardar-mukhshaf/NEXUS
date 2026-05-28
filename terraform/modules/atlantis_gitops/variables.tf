@@ -1,0 +1,17 @@
+variable "project_name" { type = string }
+variable "environment" { type = string }
+variable "naming_prefix" { type = string }
+variable "atlantis_enabled" { type = bool }
+variable "atlantis_version" { type = string }
+variable "atlantis_domain" { type = string }
+variable "atlantis_github_user" { type = string }
+variable "atlantis_repo_whitelist" { type = list(string) }
+variable "atlantis_dynamodb_table" { type = string }
+variable "cluster_name" { type = string }
+variable "oidc_provider_arn" { type = string }
+variable "oidc_provider_url" { type = string }
+variable "vpc_id" { type = string }
+variable "private_subnet_ids" { type = list(string) }
+variable "common_tags" { type = map(string) }
+variable "git_commit_sha" { type = string }
+variable "resource_description" { type = string }

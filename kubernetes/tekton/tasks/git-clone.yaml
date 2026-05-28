@@ -1,0 +1,42 @@
+apiVersion: tekton.dev/v1beta1
+kind: Task
+metadata:
+  name: git-clone
+  namespace: tekton-pipelines
+  annotations:
+    description: "Clone a Git repository"
+    argocd.argoproj.io/tracking-id: "git-clone-task"
+spec:
+  workspaces:
+    - name: output
+      description: The git repo will be cloned onto this workspace
+  params:
+    - name: url
+      type: string
+      description: Git repository URL
+    - name: revision
+      type: string
+      description: Git revision to checkout
+      default: main
+    - name: depth
+      type: string
+      description: Git clone depth
+      default: "1"
+  steps:
+    - name: clone
+      image: gcr.io/tekton-releases/github.com/tektoncd/pipeline/cmd/git-init:v0.53.0@sha256:REPLACE_WITH_DIGEST
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65532
+      script: |
+        #!/usr/bin/env sh
+        set -e
+        echo "Cloning ${URL} at revision ${REVISION}..."
+        git clone --depth=${DEPTH} --branch=${REVISION} ${URL} $(workspaces.output.path)
+      env:
+        - name: URL
+          value: $(params.url)
+        - name: REVISION
+          value: $(params.revision)
+        - name: DEPTH
+          value: $(params.depth)

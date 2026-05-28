@@ -1,0 +1,27 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: "{{team_name}}"
+
+resources:
+  - namespace.yaml
+  - deployment.yaml
+  - service.yaml
+  - ingress.yaml
+  - hpa.yaml
+  - network-policy.yaml
+  - resource-quota.yaml
+  - limit-range.yaml
+  - service-account.yaml
+  - external-secret.yaml
+
+commonLabels:
+  app.kubernetes.io/part-of: "{{service_name}}"
+  app.kubernetes.io/managed-by: argocd
+  team: "{{team_name}}"
+  cost-center: "{{cost_center}}"
+
+images:
+  - name: app
+    newName: "${ECR_REGISTRY}/{{team_name}}-{{service_name}}"
+    newTag: latest

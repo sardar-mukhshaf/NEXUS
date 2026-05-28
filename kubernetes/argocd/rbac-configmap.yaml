@@ -1,0 +1,33 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: argocd-rbac-cm
+  namespace: argocd
+  annotations:
+    description: "ArgoCD RBAC configuration for teams and admins"
+    argocd.argoproj.io/tracking-id: "argocd-rbac-cm"
+data:
+  policy.default: role:readonly
+  policy.csv: |
+    # Platform admins can manage everything
+    p, role:platform-admin, applications, *, */*, allow
+    p, role:platform-admin, exec, create, */*, allow
+    p, role:platform-admin, repositories, *, */*, allow
+    p, role:platform-admin, clusters, *, */*, allow
+
+    # Dev teams can only sync apps in their namespaces
+    p, role:dev-team, applications, get, dev-*/, allow
+    p, role:dev-team, applications, sync, dev-*/, allow
+    p, role:dev-team, applications, override, dev-*/, deny
+    p, role:dev-team, applications, delete, dev-*/, deny
+
+    # Read-only role for auditors
+    p, role:auditor, applications, get, */*, allow
+    p, role:auditor, logs, get, */*, allow
+
+    # Group mappings
+    g, platform-engineering, role:platform-admin
+    g, backend-squad, role:dev-team
+    g, frontend-guild, role:dev-team
+    g, data-platform, role:dev-team
+    g, security-audit, role:auditor

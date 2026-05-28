@@ -1,0 +1,94 @@
+apiVersion: scaffolder.backstage.io/v1beta3
+kind: Template
+metadata:
+  name: standard-microservice
+  title: Standard Microservice
+  description: Golden path for deploying a production-ready microservice
+  tags:
+    - microservice
+    - kubernetes
+    - terraform
+spec:
+  owner: platform-engineering
+  type: service
+
+  parameters:
+    - title: Service Details
+      required:
+        - name
+        - owner
+        - description
+      properties:
+        name:
+          title: Service Name
+          type: string
+          description: Unique name for the microservice
+        owner:
+          title: Owner
+          type: string
+          description: Team owning this service
+          ui:field: OwnerPicker
+          ui:options:
+            catalogFilter:
+              kind: Group
+        description:
+          title: Description
+          type: string
+          description: Brief description of the service
+
+    - title: Infrastructure
+      required:
+        - database
+        - queue
+      properties:
+        database:
+          title: Database
+          type: boolean
+          default: false
+          description: Provision Aurora PostgreSQL database
+        queue:
+          title: Message Queue
+          type: boolean
+          default: false
+          description: Provision SQS queue with DLQ
+
+  steps:
+    - id: fetch-base
+      name: Fetch Base
+      action: fetch:template
+      input:
+        url: ./skeleton
+        values:
+          name: ${{ parameters.name }}
+          owner: ${{ parameters.owner }}
+          description: ${{ parameters.description }}
+
+    - id: publish
+      name: Publish
+      action: publish:github
+      input:
+        allowedHosts: ['github.com']
+        description: This is ${{ parameters.name }}
+        repoUrl: github.com?repo=${{ parameters.name }}&owner=example-org
+
+    - id: register
+      name: Register
+      action: catalog:register
+      input:
+        repoContentsUrl: ${{ steps.publish.output.repoContentsUrl }}
+        catalogInfoPath: '/catalog-info.yaml'
+
+    - id: trigger-pipeline
+      name: Trigger Pipeline
+      action: trigger:tekton
+      input:
+        pipelineName: microservice-build-and-deploy
+        gitUrl: ${{ steps.publish.output.remoteUrl }}
+
+  output:
+    links:
+      - title: Repository
+        url: ${{ steps.publish.output.remoteUrl }}
+      - title: Open in catalog
+        icon: catalog
+        entityRef: ${{ steps.register.output.entityRef }}

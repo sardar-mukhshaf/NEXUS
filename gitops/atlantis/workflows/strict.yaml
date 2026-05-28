@@ -1,0 +1,29 @@
+# =============================================================================
+# Atlantis Workflow: strict (prod)
+# Steps: init → plan → conftest test → opa eval → checkov scan → approval → apply
+# =============================================================================
+workflow: strict
+
+plan:
+  steps:
+    - init:
+        extra_args: ["-backend-config=backend.tfvars"]
+    - plan:
+        extra_args: ["-var-file=../../terraform.tfvars", "-var-file=../../prod.tfvars", "-var=git_commit_sha=$GIT_COMMIT_SHA"]
+    - run: |
+        echo "[ATLANTIS] Running Conftest policy checks..."
+        conftest test $PLANFILE -p /policies/conftest/terraform
+    - run: |
+        echo "[ATLANTIS] Running OPA referential policies..."
+        opa eval --data /policies/opa/terraform --input $PLANFILE "data.terraform.deny" --format pretty | tee /tmp/opa-results.txt
+        if grep -q "\[" /tmp/opa-results.txt && [ "$(cat /tmp/opa-results.txt | tr -d '[:space:]')" != "[]" ]; then
+          echo "[FAIL] OPA policy violations detected"
+          exit 1
+        fi
+    - run: |
+        echo "[ATLANTIS] Running Checkov IaC scan..."
+        checkov -f $PLANFILE --framework terraform_plan --quiet --compact
+
+apply:
+  steps:
+    - apply

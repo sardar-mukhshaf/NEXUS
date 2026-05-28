@@ -1,0 +1,66 @@
+{
+  "dashboard": {
+    "id": null,
+    "uid": "nexus-supply-chain",
+    "title": "Supply Chain Security Score",
+    "tags": ["security", "supply-chain", "compliance"],
+    "timezone": "utc",
+    "schemaVersion": 36,
+    "panels": [
+      {
+        "id": 1,
+        "title": "Images Signed (%)",
+        "type": "gauge",
+        "targets": [
+          {
+            "expr": "(sum(images_signed) / sum(images_total)) * 100"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "min": 0,
+            "max": 100,
+            "thresholds": {
+              "steps": [
+                {"color": "red", "value": 0},
+                {"color": "yellow", "value": 80},
+                {"color": "green", "value": 95}
+              ]
+            }
+          }
+        }
+      },
+      {
+        "id": 2,
+        "title": "Images Scanned Clean (%)",
+        "type": "gauge",
+        "targets": [
+          {
+            "expr": "(sum(images_scanned_clean) / sum(images_total)) * 100"
+          }
+        ]
+      },
+      {
+        "id": 3,
+        "title": "SBOM Coverage (%)",
+        "type": "gauge",
+        "targets": [
+          {
+            "expr": "(sum(images_with_sbom) / sum(images_total)) * 100"
+          }
+        ]
+      },
+      {
+        "id": 4,
+        "title": "Policy Violations",
+        "type": "table",
+        "targets": [
+          {
+            "expr": "sum by (policy_name, severity) (kyverno_policy_results_total{result=\"fail\"})",
+            "format": "table"
+          }
+        ]
+      }
+    ]
+  }
+}

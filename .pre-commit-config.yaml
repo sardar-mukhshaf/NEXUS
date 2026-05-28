@@ -1,0 +1,44 @@
+# =============================================================================
+# NEXUS PLATFORM — Pre-Commit Hooks
+# =============================================================================
+repos:
+  # Terraform formatting
+  - repo: https://github.com/antonbabenko/pre-commit-terraform
+    rev: v1.86.0
+    hooks:
+      - id: terraform_fmt
+      - id: terraform_validate
+      - id: terraform_tflint
+        args:
+          - --args=--config=__GIT_WORKING_DIR__/.tflint.hcl
+      - id: terraform_checkov
+        args:
+          - --args=--framework=terraform
+          - --args=--quiet
+
+  # Trailing whitespace
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.5.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-yaml
+      - id: check-json
+      - id: detect-private-key
+
+  # SOPS encryption check
+  - repo: local
+    hooks:
+      - id: sops-encryption-check
+        name: Check SOPS encryption
+        entry: bash -c 'for f in $(git diff --cached --name-only); do if [[ "$f" == *.enc.yaml ]] || [[ "$f" == *.enc.json ]]; then if ! sops -d "$f" >/dev/null 2>&1; then echo "ERROR: $f is not valid SOPS encrypted"; exit 1; fi; fi; done'
+        language: system
+        pass_filenames: false
+        always_run: true
+
+      - id: no-plaintext-secrets
+        name: No plaintext secrets in Git
+        entry: bash -c 'if git diff --cached --name-only | xargs grep -l "password\|secret\|token\|api_key" 2>/dev/null | grep -v ".enc."; then echo "ERROR: Potential plaintext secrets detected"; exit 1; fi'
+        language: system
+        pass_filenames: false
+        always_run: true

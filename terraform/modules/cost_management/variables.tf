@@ -1,0 +1,13 @@
+variable "project_name" { type = string }
+variable "environment" { type = string }
+variable "naming_prefix" { type = string }
+variable "enable_kubecost" { type = bool }
+variable "kubecost_domain" { type = string }
+variable "infracost_enabled" { type = bool }
+variable "infracost_api_key" { type = string }
+variable "cost_centers" { type = map(string) }
+variable "cluster_name" { type = string }
+variable "oidc_provider_arn" { type = string }
+variable "common_tags" { type = map(string) }
+variable "git_commit_sha" { type = string }
+variable "resource_description" { type = string }

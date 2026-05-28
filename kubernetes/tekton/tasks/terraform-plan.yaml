@@ -1,0 +1,46 @@
+apiVersion: tekton.dev/v1beta1
+kind: Task
+metadata:
+  name: terraform-plan
+  namespace: tekton-pipelines
+  annotations:
+    description: "Run Terraform plan"
+    argocd.argoproj.io/tracking-id: "terraform-plan-task"
+spec:
+  workspaces:
+    - name: source
+    - name: terraform-vars
+      description: Contains terraform.tfvars and env tfvars
+  params:
+    - name: tf-dir
+      type: string
+      description: Directory containing Terraform code
+    - name: var-file
+      type: string
+      description: Path to tfvars file
+      default: terraform.tfvars
+    - name: git-commit-sha
+      type: string
+      description: Git commit SHA
+  steps:
+    - name: terraform-plan
+      image: hashicorp/terraform:1.7.0@sha256:REPLACE_WITH_DIGEST
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65532
+      workingDir: $(workspaces.source.path)/$(params.tf-dir)
+      script: |
+        #!/usr/bin/env sh
+        set -e
+        terraform init -backend=false
+        terraform plan \
+          -var-file=$(workspaces.terraform-vars.path)/$(params.var-file) \
+          -var="git_commit_sha=$(params.git-commit-sha)" \
+          -out=tfplan
+        terraform show -json tfplan > plan.json
+      volumeMounts:
+        - name: terraform-cache
+          mountPath: /tmp/terraform
+  volumes:
+    - name: terraform-cache
+      emptyDir: {}

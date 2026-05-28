@@ -1,0 +1,40 @@
+# =============================================================================
+# Atlantis Repo-Level Configuration
+# =============================================================================
+version: 3
+automerge: false
+abort_on_execution_order_fail: true
+
+projects:
+  - name: nexus-platform-dev
+    dir: terraform/environments/dev
+    workspace: default
+    terraform_version: v1.7.0
+    autoplan:
+      when_modified: ["*.tf", "*.tfvars", "../modules/**/*.tf"]
+      enabled: true
+    plan_requirements: [mergeable]
+    apply_requirements: [approved, mergeable]
+    workflow: default
+
+  - name: nexus-platform-staging
+    dir: terraform/environments/staging
+    workspace: default
+    terraform_version: v1.7.0
+    autoplan:
+      when_modified: ["*.tf", "*.tfvars", "../modules/**/*.tf"]
+      enabled: true
+    plan_requirements: [mergeable]
+    apply_requirements: [approved, mergeable, undiverged]
+    workflow: strict
+
+  - name: nexus-platform-prod
+    dir: terraform/environments/prod
+    workspace: default
+    terraform_version: v1.7.0
+    autoplan:
+      when_modified: ["*.tf", "*.tfvars", "../modules/**/*.tf"]
+      enabled: true
+    plan_requirements: [mergeable]
+    apply_requirements: [approved, mergeable, undiverged]
+    workflow: strict

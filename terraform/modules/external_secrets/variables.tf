@@ -1,0 +1,11 @@
+variable "project_name" { type = string }
+variable "environment" { type = string }
+variable "naming_prefix" { type = string }
+variable "external_secrets_enabled" { type = bool }
+variable "external_secrets_version" { type = string }
+variable "cluster_name" { type = string }
+variable "oidc_provider_arn" { type = string }
+variable "oidc_provider_url" { type = string }
+variable "common_tags" { type = map(string) }
+variable "git_commit_sha" { type = string }
+variable "resource_description" { type = string }

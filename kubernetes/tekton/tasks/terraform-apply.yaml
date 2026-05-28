@@ -1,0 +1,36 @@
+apiVersion: tekton.dev/v1beta1
+kind: Task
+metadata:
+  name: terraform-apply
+  namespace: tekton-pipelines
+  annotations:
+    description: "Run Terraform apply"
+    argocd.argoproj.io/tracking-id: "terraform-apply-task"
+spec:
+  workspaces:
+    - name: source
+    - name: terraform-vars
+  params:
+    - name: tf-dir
+      type: string
+    - name: plan-file
+      type: string
+      default: tfplan
+  steps:
+    - name: terraform-apply
+      image: hashicorp/terraform:1.7.0@sha256:REPLACE_WITH_DIGEST
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65532
+      workingDir: $(workspaces.source.path)/$(params.tf-dir)
+      script: |
+        #!/usr/bin/env sh
+        set -e
+        terraform init
+        terraform apply -auto-approve $(params.plan-file)
+      volumeMounts:
+        - name: terraform-cache
+          mountPath: /tmp/terraform
+  volumes:
+    - name: terraform-cache
+      emptyDir: {}

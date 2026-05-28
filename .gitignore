@@ -1,0 +1,59 @@
+# =============================================================================
+# NEXUS PLATFORM — Gitignore
+# =============================================================================
+
+# Terraform
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfplan
+.terraform.lock.hcl
+terraform.tfvars.backup
+
+# Build artifacts
+.build/
+*.zip
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.pytest_cache/
+
+# Node.js
+node_modules/
+*.log
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Secrets (plaintext only — encrypted files ARE committed)
+*.dec.yaml
+*.dec.json
+secrets.yaml
+secrets.json
+
+# Local env files
+.env
+.env.local
+
+# SARIF and reports
+*.sarif
+reports/
+
+# SBOMs (generated, not committed — signed SBOMs are stored in S3/ECR)
+*.cyclonedx.json
+*.spdx.json
+
+# Terraform-docs generated files (auto-generated)
+docs/architecture/*-docs.md
+docs/architecture/*.mmd

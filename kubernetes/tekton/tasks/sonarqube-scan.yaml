@@ -1,0 +1,41 @@
+apiVersion: tekton.dev/v1beta1
+kind: Task
+metadata:
+  name: sonarqube-scan
+  namespace: tekton-pipelines
+  annotations:
+    description: "Run SonarQube static analysis"
+    argocd.argoproj.io/tracking-id: "sonarqube-scan-task"
+spec:
+  workspaces:
+    - name: source
+  params:
+    - name: project-key
+      type: string
+    - name: sonar-host
+      type: string
+    - name: sonar-token-secret
+      type: string
+      description: Name of secret containing SonarQube token
+      default: sonarqube-token
+  steps:
+    - name: sonar-scan
+      image: sonarsource/sonar-scanner-cli:5.0@sha256:REPLACE_WITH_DIGEST
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65532
+      workingDir: $(workspaces.source.path)
+      env:
+        - name: SONAR_TOKEN
+          valueFrom:
+            secretKeyRef:
+              name: $(params.sonar-token-secret)
+              key: token
+      script: |
+        #!/usr/bin/env sh
+        set -e
+        sonar-scanner \
+          -Dsonar.projectKey=$(params.project-key) \
+          -Dsonar.host.url=$(params.sonar-host) \
+          -Dsonar.qualitygate.wait=true \
+          -Dsonar.sources=.

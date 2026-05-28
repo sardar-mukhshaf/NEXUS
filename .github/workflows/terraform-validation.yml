@@ -1,0 +1,53 @@
+# =============================================================================
+# NEXUS PLATFORM — Terraform Validation Pipeline
+# Runs on every PR: fmt, validate, tflint, checkov, conftest
+# =============================================================================
+name: Terraform Validation
+
+on:
+  pull_request:
+    paths:
+      - "terraform/**"
+      - "*.tfvars"
+
+jobs:
+  validate:
+    runs-on: [self-hosted, nexus-arc]
+    name: Terraform Validate
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Terraform Format Check
+        run: |
+          cd terraform
+          terraform fmt -check -recursive
+
+      - name: Terraform Validate
+        run: |
+          cd terraform
+          terraform init -backend=false
+          terraform validate
+
+      - name: TFLint
+        uses: terraform-linters/setup-tflint@v4
+        with:
+          tflint_version: v0.50.0
+      - run: |
+          cd terraform
+          tflint --init
+          tflint --config=../.tflint.hcl -f compact
+
+      - name: Checkov
+        uses: bridgecrewio/checkov-action@master
+        with:
+          directory: terraform/
+          framework: terraform
+          output_format: sarif
+          output_file_path: reports/checkov.sarif
+
+      - name: Conftest
+        run: |
+          cd terraform
+          terraform plan -var-file=../terraform.tfvars -out=tfplan
+          terraform show -json tfplan > plan.json
+          conftest test plan.json -p ../policies/conftest/terraform

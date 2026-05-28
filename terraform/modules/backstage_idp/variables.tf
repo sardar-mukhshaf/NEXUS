@@ -1,0 +1,24 @@
+variable "project_name" { type = string }
+variable "environment" { type = string }
+variable "naming_prefix" { type = string }
+variable "backstage_enabled" { type = bool }
+variable "backstage_domain" { type = string }
+variable "backstage_replicas" { type = number }
+variable "backstage_image_tag" { type = string }
+variable "backstage_db_instance_class" { type = string }
+variable "backstage_db_multi_az" { type = bool }
+variable "backstage_db_backup_retention" { type = number }
+variable "backstage_techdocs_bucket_prefix" { type = string }
+variable "keycloak_realm" { type = string }
+variable "keycloak_client_id" { type = string }
+variable "enable_keycloak_sso" { type = bool }
+variable "cluster_name" { type = string }
+variable "oidc_provider_arn" { type = string }
+variable "oidc_provider_url" { type = string }
+variable "vpc_id" { type = string }
+variable "private_subnet_ids" { type = list(string) }
+variable "database_subnet_ids" { type = list(string) }
+variable "vpc_cidr" { type = string default = "10.0.0.0/16" }
+variable "common_tags" { type = map(string) }
+variable "git_commit_sha" { type = string }
+variable "resource_description" { type = string }

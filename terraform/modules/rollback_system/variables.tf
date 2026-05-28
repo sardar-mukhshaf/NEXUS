@@ -1,0 +1,9 @@
+variable "project_name" { type = string }
+variable "environment" { type = string }
+variable "naming_prefix" { type = string }
+variable "rollback_auto_staging" { type = bool }
+variable "rollback_requires_approval" { type = bool }
+variable "github_token_secret_arn" { type = string }
+variable "common_tags" { type = map(string) }
+variable "git_commit_sha" { type = string }
+variable "resource_description" { type = string }

@@ -1,0 +1,36 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: verify-image-signatures
+  annotations:
+    policies.kyverno.io/title: "Verify Image Signatures"
+    policies.kyverno.io/category: "Security"
+    policies.kyverno.io/severity: "critical"
+    policies.kyverno.io/subject: "Pod"
+    policies.kyverno.io/description: "Requires all container images to be signed with Cosign KMS key"
+    argocd.argoproj.io/tracking-id: "verify-image-signatures"
+spec:
+  validationFailureAction: Enforce
+  background: true
+  rules:
+    - name: verify-cosign-signature
+      match:
+        resources:
+          kinds:
+            - Pod
+      exclude:
+        resources:
+          namespaces:
+            - kube-system
+            - kyverno
+            - falco
+            - atlantis
+            - argocd
+            - external-secrets
+      verifyImages:
+        - imageReferences:
+            - "*"
+          attestors:
+            - entries:
+                - keys:
+                    kms: "arn:aws:kms:eu-west-1:123456789012:key/REPLACE-ME"

@@ -1,0 +1,50 @@
+# =============================================================================
+# NEXUS PLATFORM — SOPS Validation Pipeline
+# Verifies all .enc.yaml files are actually encrypted.
+# =============================================================================
+name: SOPS Validation
+
+on:
+  pull_request:
+    paths:
+      - "gitops/sops/**"
+      - "**/*.enc.yaml"
+      - "**/*.enc.json"
+
+jobs:
+  validate-encryption:
+    runs-on: [self-hosted, nexus-arc]
+    name: Validate SOPS Encryption
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install SOPS
+        run: |
+          curl -LO https://github.com/getsops/sops/releases/download/v3.8.1/sops-v3.8.1.linux.amd64
+          sudo install -m 755 sops-v3.8.1.linux.amd64 /usr/local/bin/sops
+
+      - name: Check Encrypted Files
+        run: |
+          FAILED=0
+          for file in $(find . -name "*.enc.yaml" -o -name "*.enc.json"); do
+            echo "Checking $file..."
+            if ! sops -d "$file" >/dev/null 2>&1; then
+              echo "ERROR: $file is not valid SOPS encrypted or decryption failed"
+              FAILED=1
+            fi
+          done
+
+          if [ $FAILED -eq 1 ]; then
+            echo "SOPS validation failed. Ensure all .enc files are properly encrypted."
+            exit 1
+          fi
+
+          echo "All SOPS encrypted files validated successfully."
+
+      - name: Check for Plaintext Secrets
+        run: |
+          if grep -r "password\|secret\|token\|api_key" --include="*.yaml" --include="*.json" gitops/sops/ | grep -v ".enc."; then
+            echo "ERROR: Potential plaintext secrets found in gitops/sops/"
+            exit 1
+          fi
+          echo "No plaintext secrets detected."

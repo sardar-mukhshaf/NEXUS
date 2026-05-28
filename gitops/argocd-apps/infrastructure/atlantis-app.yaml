@@ -1,0 +1,32 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: atlantis-gitops
+  namespace: argocd
+  annotations:
+    description: "ArgoCD manages Atlantis GitOps server deployment"
+    managed-by: "terraform"
+    argocd.argoproj.io/tracking-id: "atlantis-gitops"
+finalizers:
+  - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/example-org/nexus-platform.git
+    targetRevision: HEAD
+    path: kubernetes/atlantis
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: atlantis
+  syncPolicy:
+    automated:
+      selfHeal: true
+      prune: true
+    syncOptions:
+      - CreateNamespace=true
+    retry:
+      limit: 5
+      backoff:
+        duration: 5s
+        factor: 2
+        maxDuration: 3m
